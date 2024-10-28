@@ -234,14 +234,3 @@ B: PROP=0
 B: EV=21
 B: SW=4
 
-I: Bus=0005 Vendor=004c Product=2011 Version=0001
-N: Name="LE-Beats Studio Buds (AVRCP)"
-P: Phys=c8:94:02:82:32:30
-S: Sysfs=/devices/virtual/input/input28
-U: Uniq=
-H: Handlers=kbd event22 
-B: PROP=0
-B: EV=100007
-B: KEY=2fc800 145200000000 0 10300 49e800000c00 e16800000000f f810000010000ffc
-B: REL=0
-

